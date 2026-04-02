@@ -1,38 +1,44 @@
 #include <Wire.h>
 #include <AS5600.h>
+#include <math.h> // Necessaria per fmodf
 
 AS5600 as5600;
 
 void setup() {
   Serial.begin(115200);
-  Wire.begin(21, 22);  // SDA, SCL per ESP32
+  Wire.begin(21, 22); 
 
-  Serial.println("Test AS5600...");
+  Serial.println("Inizializzazione AS5600...");
 
   if (!as5600.begin()) {
-    Serial.println("AS5600 non trovato! Controlla il cablaggio.");
+    Serial.println("Errore: AS5600 non trovato!");
     while (1);
   }
+  
+  // Opzionale: imposta la direzione se la libreria lo supporta
+  // as5600.setDirection(AS5600_CLOCK_WISE); 
 
-  Serial.println("AS5600 trovato!");
+  Serial.println("AS5600 pronto.");
 }
 
 void loop() {
-  uint16_t rawAngle = as5600.rawAngle();   // 0 - 4095
-  float degrees = as5600.readAngle();      // 0 - 360°
+  // Lettura ultra-diretta del registro dell'angolo (0x0E e 0x0F)
+  Wire.beginTransmission(0x36);
+  Wire.write(0x0E); 
+  Wire.endTransmission();
+  Wire.requestFrom(0x36, 2);
+  
+  if (Wire.available() >= 2) {
+    uint16_t high = Wire.read();
+    uint16_t low = Wire.read();
+    uint16_t realRaw = (high << 8) | low;
+    
+    float realDeg = (realRaw * 360.0) / 4096.0;
 
-  if (as5600.detectMagnet()) {
-    Serial.println("Magnete rilevato!");
-  } else {
-    Serial.println("Magnete NON rilevato!");
+    Serial.print("Vero Raw Hardware: ");
+    Serial.print(realRaw);
+    Serial.print(" | Vero Grado Hardware: ");
+    Serial.println(realDeg);
   }
-
-  
-  Serial.print("Raw: ");
-  Serial.print(rawAngle);
-  Serial.print("  |  Gradi: ");
-  Serial.println(degrees);
-
-  delay(200);
-  
+  delay(100);
 }
